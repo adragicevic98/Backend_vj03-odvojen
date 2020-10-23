@@ -4,7 +4,7 @@ const app=express()
 const cors=require('cors')
 app.use(cors())
 app.use(express.json()) //middleware --> pisat ga prije rute
-
+app.use(express.static('build'))
 	
 const zahtjevInfo = (req, res, next) => {
   console.log('Metoda:', req.method)
@@ -101,7 +101,7 @@ const nepoznataRuta = (req, res) => {
  
 app.use(nepoznataRuta)
 
-const PORT = 3001
+const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
     console.log(`Server sluša na portu ${PORT}`);
 })
