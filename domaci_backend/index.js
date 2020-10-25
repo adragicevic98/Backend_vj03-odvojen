@@ -1,6 +1,10 @@
 const express = require('express')
 const app=express()
 
+
+const Osoba=require('./models/osobe')
+
+
 const cors=require('cors')
 app.use(cors())
 app.use(express.json()) //middleware --> pisat ga prije rute
@@ -43,35 +47,50 @@ app.get('/',(req, res) => {
 })
 
 app.get('/api/osobe',(req, res) => {
-    res.json(poruke)
+   Osoba.find({}).then( sveOsobe =>{
+     res.json(sveOsobe)
+   })
 })
-app.get('/api/osobe/:id',(req, res) => {
-    const id=Number(req.params.id)
-    const poruka=poruke.find(p=> p.id === id)
-    if(poruka){
-      res.json(poruka)
-    }else{
-      res.status(404).end()
-    }
-   
+app.get('/api/osobe/:id',(req, res,next) => {
+    Osoba.findById(req.params.id).then( o =>{
+      if(o){
+        res.json(o)
+      }else{
+        res.status(404).end()
+      }
+      
+    }).catch(err => next(err)
+      // console.log("Dogodila se pogreška",err);
+      // res.status(400).send({error:"Neispravan format ID parametra"})
+    )
    
 })
 app.delete('/api/osobe/:id',(req, res) => {
-  const id=Number(req.params.id)
-  poruke=poruke.filter(p => p.id!== id)
-  res.status(204).end()
+  const id=req.params.id
+  Osoba.findByIdAndRemove(id).then(result=>{
+    res.status(204).end()
+  })
+ .catch(err => next(err))
 
 })
-app.put('/api/osobe/:id',(req, res) => {
-  const id=Number(req.params.id)
+app.put('/api/osobe/:id',(req, res,next) => {
+  const id=req.params.id
   const podatak=req.body
-  poruke=poruke.map(p => p.id !== id ? p : podatak)
-  res.json(podatak)
+
+  const osoba={
+    imePrezime:podatak.imePrezime,
+    adresa:podatak.adresa
+  }
+
+  Osoba.findByIdAndUpdate(id,osoba,{new:true}).then(osoba=>{
+    res.json(osoba)
+  })
+.catch(err => next)
 
 })
 
-app.post('/api/osobe',(req,res) => {
-    const maxId = poruke.length > 0 ? Math.max(...poruke.map(p => p.id )) : 0
+app.post('/api/osobe',(req,res,next) => {
+   
     const podatak=req.body
     if(!podatak.imePrezime){
       return res.status(400).json({
@@ -83,23 +102,35 @@ app.post('/api/osobe',(req,res) => {
         error: 'Nedostaje adresa!'
       })
     }
-    const poruka={
+    const osoba= new Osoba({
       imePrezime: podatak.imePrezime,
       adresa: podatak.adresa,
       datum:new Date(),
-      id:maxId+1
 
-    }
+    })
+    osoba.save().then( result =>{
+      console.log("Podatak spremljen")
+      res.json(result);
+    })
+    .catch(err => next(err))
 
-    poruke=poruke.concat(poruka)
-
-    res.json(poruka)
 })
 const nepoznataRuta = (req, res) => {
   res.status(404).send({ error: 'nepostojeca ruta' })
 }
  
 app.use(nepoznataRuta)
+
+const errorHandler = (err,req,res,next) =>{
+  console.log("Middleware za pogreske");
+  if(err.name = "CastError"){
+    return res.status(400).send({error:"Krivi ID format"})
+  }else if(err.name ==="MongoParseError"){
+    return res.status(400).send({error:"Krivi format podatka"})
+  }
+  next(err)
+}
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
